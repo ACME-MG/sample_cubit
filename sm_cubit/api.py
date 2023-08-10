@@ -396,7 +396,7 @@ class API:
         self.__print__(f"Exporting {statistics_string}")
         
         # Extract statistics
-        spn_size = [self.__thickness__, len(self.__pixel_grid__), len(self.__pixel_grid__[0])]
+        spn_size = [len(self.__pixel_grid__[0]), len(self.__pixel_grid__), self.__thickness__]
         has_void = pixel_maths.VOID_PIXEL_ID in [pixel for pixel_list in self.__pixel_grid__ for pixel in pixel_list]
         extracted_statistics = statistics.get_stastistics(self.__exodus_path__, self.__spn_path__, spn_size, self.__grain_map__, has_void, statistics_list)
         file_path = self.__get_output__(f"{file_name}.csv")

@@ -10,7 +10,9 @@ import math
 from PIL import Image
 
 # Constants
-STEP_SIZE = 0.1
+CSV_FILE = "output_VPEVS_gridify_0000.csv"
+STEP_SIZE = 2
+IPF_AXIS = "z"
 
 # Converts a quaternion into a set of euler-bunge angles (rads)
 # https://mooseframework.inl.gov/docs/doxygen/modules/classEulerAngles.html
@@ -110,7 +112,7 @@ def euler_to_rgb(phi_1, Phi, phi_2, ipf="x"):
     symmetry_matrices = get_cubic_symmetry_matrices()
 
     # Sort euler angles into SST
-    for i in range(len(symmetry_matrices)):\
+    for i in range(len(symmetry_matrices)):
 
         # Calculate temporary matrix
         temp_matrix = [[0,0,0],[0,0,0],[0,0,0]]
@@ -177,8 +179,8 @@ def plot_orientations_csv(gridify_path, output_path, ipf="z", coord_headers=["x"
         q2 = float(row[q2_index])
         q3 = float(row[q3_index])
         q4 = float(row[q4_index])
-        x_coord = round(float(row[x_index])/STEP_SIZE)
-        y_coord = round(float(row[y_index])/STEP_SIZE)
+        x_coord = round(float(row[x_index])/STEP_SIZE - 1e-5)
+        y_coord = round(float(row[y_index])/STEP_SIZE - 1e-5)
 
         # Get euler orientation and IPF colour
         euler = quat_to_euler(q1, q2, q3, q4)
@@ -204,4 +206,4 @@ def plot_orientations_csv(gridify_path, output_path, ipf="z", coord_headers=["x"
         img.putpixel(coord, pixel["colour"])
     img.save(output_path, "PNG")
 
-# plot_orientations_csv("output_gridify_0030.csv", "plot_z.png", ipf="z", quat_headers=["orientation_q4", "orientation_q2", "orientation_q3", "orientation_q1"])
+plot_orientations_csv(CSV_FILE, "plot.png", ipf=IPF_AXIS, quat_headers=["orientation_q4", "orientation_q2", "orientation_q3", "orientation_q1"])

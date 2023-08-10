@@ -8,8 +8,12 @@ api.read_pixels("20230628_617/inl_40x_10m.csv", 10)
 api.visualise(ipf="z")
 
 # Cut microstructure and add grips
+# api.redefine_domain(245, 2417, 123-100, 1753-130)
+# api.redefine_domain(-2172/4, 2172+2172/4, 0, 1600)
 api.redefine_domain(245, 2417, 123-100, 1753-100)
 api.redefine_domain(-2172/4, 2172+2172/4, 0, 1630)
+api.clean_pixels(3)
+api.smoothen_edges(3)
 api.add_homogenised()
 api.visualise(ipf="z")
 
