@@ -74,12 +74,12 @@ def coarse_mesh(psculpt_path, step_size, i_path, spn_path, exodus_path, pixel_gr
                     pixel_grid[row][col] += 1
     new_void_id = 1 if has_void else VOID_PIXEL_ID
 
-    # Write SPN file
+    # Write SPN file (x = gauge, y = height, z = thickness)
     file = open(spn_path, "w+")
-    for _ in range(thickness):
-        for pixel_list in pixel_grid:
-            for pixel in pixel_list:
-                file.write(f"{pixel} ")
+    for j in range(len(pixel_grid[0])):
+        for i in range(len(pixel_grid)):
+            for _ in range(thickness):
+                file.write(f"{pixel_grid[i][j]} ")
     file.close()
 
     # Adaptive meshing
@@ -91,9 +91,9 @@ def coarse_mesh(psculpt_path, step_size, i_path, spn_path, exodus_path, pixel_gr
     # Create input file
     file = open(i_path, "w+", newline = "")
     file.write(INPUT_FILE_CONTENT.format(
-        x_cells     = thickness,
+        x_cells     = x_size,
         y_cells     = y_size,
-        z_cells     = x_size,
+        z_cells     = thickness,
         step_size   = step_size,
         void_id     = new_void_id,
         adapt_options = adaptive_string,

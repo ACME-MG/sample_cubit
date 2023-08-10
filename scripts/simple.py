@@ -4,13 +4,10 @@ from sm_cubit.api import API
 # Initialise and read pixels
 api = API("inl_40x_10m")
 api.read_pixels("20230628_617/inl_40x_10m.csv", 10)
-# api.decrease_resolution(4)
 api.visualise(ipf="z")
 
 # Cut microstructure and add grips
-api.redefine_domain(245, 2417, 123-100, 1753-100)
-api.redefine_domain(-2172/4, 2172+2172/4, 0, 1630)
-api.add_homogenised()
+api.redefine_domain(0, 300, 0, 100)
 api.visualise(ipf="z")
 
 # Mesh
