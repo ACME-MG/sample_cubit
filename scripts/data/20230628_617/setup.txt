@@ -1,0 +1,22 @@
+Magnification     = 41
+OriginalPixelSize = 2
+NewPixelSize      = 10
+ReduceByFactor    = 5
+-----------------------------
+HighAngleBoudary = 15 degree
+LowAngleBoudary  = 5 degree
+MicronbarLength  = 1000 micron
+-----------------------------
+GrainSizeRemove        = 15 pixels
+GrainAspectRatioRemove = 5
+-----------------------------
+GrainInitialCount = 2629
+GrainRemoveCount  = 428
+GrainFillCount    = 431
+-----------------------------
+SampleGaugeLength = 2172 micron
+SampleGaugeWidth  = 1630 micron
+SampleLeft        = 245 micron
+SampleRight       = 2417 micron
+SampleTop         = 123 micron
+SampleBottom      = 1753 micron

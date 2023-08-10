@@ -1,0 +1,6 @@
+sm_cubit/__pycache__
+sm_cubit/interface/__pycache__
+sm_cubit/maths/__pycache__
+sm_cubit/visuals/__pycache__
+scripts/nohup.out
+scripts/results
