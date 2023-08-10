@@ -76,10 +76,10 @@ def coarse_mesh(psculpt_path, step_size, i_path, spn_path, exodus_path, pixel_gr
 
     # Write SPN file (x = gauge, y = height, z = thickness)
     file = open(spn_path, "w+")
-    for j in range(len(pixel_grid[0])):
-        for i in range(len(pixel_grid)):
-            for _ in range(thickness):
-                file.write(f"{pixel_grid[i][j]} ")
+    for j in range(x_size):            # x
+        for i in range(y_size):        # y
+            for _ in range(thickness): # z
+                file.write(f"{pixel_grid[y_size - i - 1][j]} ")
     file.close()
 
     # Adaptive meshing
