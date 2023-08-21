@@ -12,7 +12,6 @@ import sm_cubit.visuals.importer as importer
 import sm_cubit.visuals.improver as improver
 import sm_cubit.interface.reader as reader
 import sm_cubit.maths.pixel_maths as pixel_maths
-import sm_cubit.maths.grain_maths as grain_maths
 import sm_cubit.interface.mesher as mesher
 import sm_cubit.maths.statistics as statistics
 
@@ -32,12 +31,14 @@ class API:
         """
         
         # Initialise internal variables
-        self.__pixel_grid__ = []
-        self.__grain_map__  = {}
+        self.__pixel_grid__  = []
+        self.__csv_path__    = None
+        self.__grain_map__   = {}
         self.__print_index__ = 0
-        self.__img_count__  = 1
-        self.__step_size__  = None
-        self.__thickness__  = None
+        self.__step_size__   = None
+        self.__x_start_index__     = 0 # starting x/step_size of the microstructure
+        self.__y_start_index__     = 0 # starting y/step_size of the microstructure
+        self.__thickness__   = None
         
         # Print starting message
         self.__print_index__ = 0
@@ -98,13 +99,16 @@ class API:
         """
         self.__print__("Reading pixel data from CSV file")
         self.__step_size__ = step_size
-        csv_path = self.__get_input__(csv_file)
-        self.__pixel_grid__, self.__grain_map__ = reader.read_pixels(csv_path, step_size)
+        self.__x_start_index__   = 0
+        self.__y_start_index__   = 0
+        self.__csv_path__ = self.__get_input__(csv_file)
+        self.__pixel_grid__, self.__grain_map__ = reader.read_pixels(self.__csv_path__, self.__step_size__)
 
     def read_image(self, image_file:str, ipf:str="x") -> None:
         """
         Reads the sample data from an image; requires the `read_pixels` function
-        to be called beforehand
+        to be called beforehand, and may not work correctly with the
+        `visualise_by_element` function
         
         Parameters:
         * `image_file`: The image that the data is read from
@@ -112,7 +116,7 @@ class API:
         """
         self.__print__("Importing pixel data from image file")
         new_pixel_grid = importer.convert_image(self.__grain_map__, self.__get_input__(image_file), ipf)
-        self.__step_size__ *= len(self.__pixel_grid__)/len(new_pixel_grid)
+        self.__step_size__ *= len(self.__pixel_grid__) / len(new_pixel_grid)
         self.__pixel_grid__ = new_pixel_grid
 
     def clean_pixels(self, iterations:int=1) -> None:
@@ -156,7 +160,7 @@ class API:
         * `threshold`: The pixel threshold for which grains will be merged
         """
         self.__print__(f"Assimilating grains smaller than {threshold} pixels")
-        self.__pixel_grid__ = improver.remove_small_grains(threshold, self.__pixel_grid__)
+        self.__pixel_grid__ = improver.remove_small_grains(self.__pixel_grid__, threshold)
 
     def merge_grains(self, threshold:int=10) -> None:
         """
@@ -204,6 +208,10 @@ class API:
         x_max = round(x_max / self.__step_size__)
         y_min = round(y_min / self.__step_size__)
         y_max = round(y_max / self.__step_size__)
+        
+        # Update the new minimum and maximum values
+        self.__x_start_index__ -= x_min
+        self.__y_start_index__ -= y_min
 
         # Get new and original lengths
         x_size = len(self.__pixel_grid__[0])
@@ -229,6 +237,8 @@ class API:
         """
         self.__print__("Decreasing the sample resolution")
         self.__step_size__ *= factor
+        self.__x_start_index__ = round(self.__x_start_index__ / factor)
+        self.__y_start_index__ = round(self.__y_start_index__ / factor)
         new_x_size = math.ceil(len(self.__pixel_grid__[0]) / factor)
         new_y_size = math.ceil(len(self.__pixel_grid__) / factor)
         new_pixel_grid = pixel_maths.get_void_pixel_grid(new_x_size, new_y_size)
@@ -246,6 +256,8 @@ class API:
         """
         self.__print__("Increasing the sample resolution")
         self.__step_size__ /= factor
+        self.__x_start_index__ = round(self.__x_start_index__ * factor)
+        self.__y_start_index__ = round(self.__y_start_index__ * factor)
         new_x_size = len(self.__pixel_grid__[0]) * factor
         new_y_size = len(self.__pixel_grid__) * factor
         new_pixel_grid = pixel_maths.get_void_pixel_grid(new_x_size, new_y_size)
@@ -268,7 +280,7 @@ class API:
         y_centre = round(y_centre / self.__step_size__)
         radius = round(radius / self.__step_size__)
         coordinates_list = pixel_maths.get_coordinates_within_circle(x_centre, y_centre, radius)
-        self.__pixel_grid__ = pixel_maths.remove_pixels(self.__pixel_grid__, coordinates_list)
+        self.__pixel_grid__ = pixel_maths.replace_pixels(self.__pixel_grid__, coordinates_list)
 
     def cut_rectangle(self, x_min:float, x_max:float, y_min:float, y_max:float) -> None:
         """
@@ -286,7 +298,7 @@ class API:
         y_min = round(y_min / self.__step_size__)
         y_max = round(y_max / self.__step_size__)
         coordinates_list = pixel_maths.get_coordinates_within_rectangle(x_min, x_max, y_min, y_max)
-        self.__pixel_grid__ = pixel_maths.remove_pixels(self.__pixel_grid__, coordinates_list)
+        self.__pixel_grid__ = pixel_maths.replace_pixels(self.__pixel_grid__, coordinates_list)
 
     def cut_triangle(self, x_a:float, y_a:float, x_b:float, y_b:float, x_c:float, y_c:float) -> None:
         """
@@ -308,7 +320,7 @@ class API:
         x_c = round(x_c / self.__step_size__)
         y_c = round(y_c / self.__step_size__)
         coordinates_list = pixel_maths.get_coordinates_within_triangle(x_a, y_a, x_b, y_b, x_c, y_c)
-        self.__pixel_grid__ = pixel_maths.remove_pixels(self.__pixel_grid__, coordinates_list)
+        self.__pixel_grid__ = pixel_maths.replace_pixels(self.__pixel_grid__, coordinates_list)
 
     def cut_mask(self, png_file:str) -> None:
         """
@@ -319,37 +331,47 @@ class API:
         """
         self.__print__("Performing cut using a mask")
         coordinates_list = imager.get_void_pixels(self.__get_input__(png_file))
-        self.__pixel_grid__ = pixel_maths.remove_pixels(self.__pixel_grid__, coordinates_list)
+        self.__pixel_grid__ = pixel_maths.replace_pixels(self.__pixel_grid__, coordinates_list)
 
-    def add_homogenised(self) -> None:
+    def fill_void(self) -> None:
         """
-        Replaces the void with homogenised grain with average orientation weighted by area;
-        note that this adds the homogenised (i.e., average) orientations to the end of the
-        orientation file, if exported
+        Replaces the void with homogenous material with no orientation; note that
+        this material's orientation will not be recorded if the orientation file
+        is exported
         """
-        self.__print__("Replacing void with average grain")
-
-        # Adds average orientation as new grain
-        avg_ori = grain_maths.get_average_orientation(self.__grain_map__)
-        self.__grain_map__[pixel_maths.HOMOGENOUS_PIXEL_ID] = grain_maths.get_grain_dict(0, *avg_ori, 0)
-
-        # Replaces void with homogenised grain
+        self.__print__("Replacing void with material")
         for row in range(len(self.__pixel_grid__)):
             for col in range(len(self.__pixel_grid__[0])):
                 if self.__pixel_grid__[row][col] == pixel_maths.VOID_PIXEL_ID:
-                    self.__pixel_grid__[row][col] = pixel_maths.HOMOGENOUS_PIXEL_ID
+                    self.__pixel_grid__[row][col] = pixel_maths.UNORIENTED_PIXEL_ID
 
-    def visualise(self, png_file:str="image", ipf:str=None) -> None:
+    def visualise_by_grain(self, png_file:str="ebsd_by_grain", ipf:str=None) -> None:
         """
-        Creates an image of the sample
+        Visualises the pixel grid by grain
         
         Parameters:
         * `png_file`: The file of the image
-        * `ipf`:      The IPF scheme that the image uses for colouring the grain orientations
+        * `ipf`:      The IPF scheme that the image uses for colouring the grain orientations;
+                      if unspecified, then random colours will be given to each grain
         """
-        self.__print__("Visualising the sample")
-        imager.generate_image(self.__pixel_grid__, self.__grain_map__, self.__get_output__(f"{png_file}_{self.__img_count__}"), ipf)
-        self.__img_count__ += 1
+        self.__print__("Visualising the sample by grain")
+        png_path = self.__get_output__(png_file)
+        imager.visualise_by_grain(png_path, self.__pixel_grid__, self.__grain_map__, ipf)
+
+    def visualise_by_element(self, png_file:str="ebsd_by_element", ipf:str="x") -> None:
+        """
+        Visualises the pixel grid by element
+        
+        Parameters:
+        * `png_file`: The file of the image
+        * `ipf`:      The IPF scheme that the image uses for colouring the grain orientations;
+                      if unspecified, ipf="x" is used
+        """
+        self.__print__("Visualising the sample by element")
+        png_path = self.__get_output__(png_file)
+        orientation_grid = statistics.get_orientation_grid(self.__csv_path__, self.__pixel_grid__, self.__step_size__,
+                                                           self.__x_start_index__, self.__y_start_index__)
+        imager.visualise_by_element(png_path, self.__pixel_grid__, orientation_grid, ipf)
         
     def mesh(self, psculpt_path:str, thickness:float, adaptive:bool=False) -> None:
         """
@@ -370,44 +392,41 @@ class API:
             raise ValueError(f"The specified thickness must be at least {self.__step_size__}")
         self.__thickness__ = round(thickness / self.__step_size__)
         has_void = pixel_maths.VOID_PIXEL_ID in [pixel for pixel_list in self.__pixel_grid__ for pixel in pixel_list]
-        mesher.coarse_mesh(psculpt_path, self.__step_size__, self.__i_path__, self.__spn_path__, self.__exodus_path__, self.__pixel_grid__, self.__thickness__, has_void, adaptive)
+        mesher.coarse_mesh(psculpt_path, self.__step_size__, self.__i_path__, self.__spn_path__, self.__exodus_path__,
+                           self.__pixel_grid__, self.__thickness__, has_void, adaptive)
 
-    # Exports statistics
-    def export_statistics(self, file_name:str="input_orientations", orientation:bool=False, area:bool=False, phase:bool=False) -> None:
+    # Exports statistics by grains
+    def export_grain_stats(self, file_name:str="grain_stats") -> None:
         """
-        Exports the statistics of the mesh
+        Exports the orientations, area, and phase id of the grains
         
         Parameters:
         * `file_name`:   The name of the file
-        * `orientation`: Whether to export the orientations of the grains
-        * `area`:        Whether to export the areas of the grains
-        * `phase`:       Whether to export the phase of the grains
         """
-        self.__print__("Exporting the statistics")
-
-        # Define statistics to extract
-        statistics_list = []
-        statistics_list += ["phi_1", "Phi", "phi_2"] if orientation else []
-        statistics_list += ["size"] if area else []
-        statistics_list += ["phase_id"] if phase else []
-
-        # Print progress
-        statistics_string = ", ".join(statistics_list) if statistics_list != [] else "nothing"
-        self.__print__(f"Exporting {statistics_string}")
-        
-        # Extract statistics
+        self.__print__(f"Exporting orientations, area, and phase id for each grain")
         spn_size = [len(self.__pixel_grid__[0]), len(self.__pixel_grid__), self.__thickness__]
         has_void = pixel_maths.VOID_PIXEL_ID in [pixel for pixel_list in self.__pixel_grid__ for pixel in pixel_list]
-        extracted_statistics = statistics.get_stastistics(self.__exodus_path__, self.__spn_path__, spn_size, self.__grain_map__, has_void, statistics_list)
+        grain_stats = statistics.get_grain_stats(self.__exodus_path__, self.__spn_path__, spn_size, self.__grain_map__, has_void)
         file_path = self.__get_output__(f"{file_name}.csv")
-        
-        # Writes the data to the CSV file
-        with open(file_path, "w+") as file:
-            writer = csv.writer(file)
-            for row in extracted_statistics:
-                writer.writerow(row)
+        write_to_csv(file_path, grain_stats)
 
-    def export_dimensions(self, file_name:str="dim.txt") -> None:
+    # Exports staistics by elements
+    def export_element_stats(self, file_name:str="element_stats") -> None:
+        """
+        Exports the orientations, grain id, and phase id of the elements
+        
+        Parameters:
+        * `file_name`:   The name of the file
+        """
+        self.__print__(f"Exporting orientations, grain id, and phase id for each element")
+        orientation_grid = statistics.get_orientation_grid(self.__csv_path__, self.__pixel_grid__, self.__step_size__,
+                                                           self.__x_start_index__, self.__y_start_index__)
+        element_stats = statistics.get_element_stats(self.__exodus_path__, orientation_grid, self.__pixel_grid__,
+                                                     self.__grain_map__, self.__step_size__)
+        file_path = self.__get_output__(f"{file_name}.csv")
+        write_to_csv(file_path, element_stats)
+        
+    def export_dimensions(self, file_name:str="dimensions.txt") -> None:
         """
         Exports the SPN dimensions
         
@@ -431,3 +450,16 @@ def safe_mkdir(dir_path:str) -> None:
     """
     if not os.path.exists(dir_path):
         os.mkdir(dir_path)
+
+def write_to_csv(csv_path:str, list_of_rows:list) -> None:
+    """
+    Writes content to a CSV file
+    
+    Parameters:
+    * `csv_path`:     Path to the CSV file
+    * `list_of_rows`: A list of rows to write to CSV
+    """
+    with open(csv_path, "w+") as file:
+        writer = csv.writer(file)
+        for row in list_of_rows:
+            writer.writerow(row)

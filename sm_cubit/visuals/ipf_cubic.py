@@ -9,32 +9,13 @@
 
 # Libraries
 import math
+from sm_cubit.maths.orientations import deg_to_rad, euler_to_matrix
 from scipy.optimize import minimize
 
-# Converts degrees to radians
-def deg_to_rad(degrees):
-    if isinstance(degrees, list):
-        return [deg_to_rad(d) for d in degrees]
-    return degrees * math.pi / 180
-
-# Determines the orientation matrix of a set of euler-bunge angles (rads)
-def euler_to_matrix(phi_1, Phi, phi_2):
-    om_11 = math.cos(phi_1)*math.cos(phi_2) - math.sin(phi_1)*math.sin(phi_2)*math.cos(Phi)
-    om_12 = math.sin(phi_1)*math.cos(phi_2) + math.cos(phi_1)*math.sin(phi_2)*math.cos(Phi)
-    om_13 = math.sin(phi_2)*math.sin(Phi)
-    om_21 = -math.cos(phi_1)*math.sin(phi_2) - math.sin(phi_1)*math.cos(phi_2)*math.cos(Phi)
-    om_22 = -math.sin(phi_1)*math.sin(phi_2) + math.cos(phi_1)*math.cos(phi_2)*math.cos(Phi)
-    om_23 = math.cos(phi_2)*math.sin(Phi)
-    om_31 = math.sin(phi_1)*math.sin(Phi)
-    om_32 = -math.cos(phi_1)*math.sin(Phi)
-    om_33 = math.cos(Phi)
-    om = [[om_11, om_12, om_13],
-          [om_21, om_22, om_23],
-          [om_31, om_32, om_33]]
-    return om
-
-# Returns the cubic symmetry matrices
 def get_cubic_symmetry_matrices():
+    """
+    Returns the cubic symmetry matrices
+    """
     return [
         [[1,0,0], [0,1,0], [0,0,1]],
         [[0,0,1], [1,0,0], [0,1,0]],
@@ -62,8 +43,18 @@ def get_cubic_symmetry_matrices():
         [[0,-1,0], [1,0,0], [0,0,1]],
     ]
 
-# Converts orientation from euler-bunge to RGB (for cubic only)
-def euler_to_rgb(phi_1, Phi, phi_2, ipf="x"):
+def euler_to_rgb(phi_1:float, Phi:float, phi_2:float, ipf="x") -> tuple:
+    """
+    Converts orientation from euler-bunge to RGB (for cubic only)
+    
+    Parameters:
+    * `phi_1`: The average phi_1 orientation of the grain
+    * `Phi`:   The average Phi orientation of the grain
+    * `phi_2`: The average phi_2 orientation of the grain
+    * `ipf`:   The IPF colouring scheme
+    
+    Returns the RGB values
+    """
     
     # Get IPF direction list
     if ipf == "x":
@@ -132,8 +123,19 @@ def euler_to_rgb(phi_1, Phi, phi_2, ipf="x"):
     blue    = round(blue/max_rgb*255)
     return red, green, blue
 
-# Converts RGB to euler-bunge orientation (through optimisation)
-def rgb_to_euler(red, green, blue, ipf="x"):
+def rgb_to_euler(red:int, green:int, blue:int, ipf:str="x"):
+    """
+    Converts RGB to euler-bunge orientation through optimisation;
+    this function is mostly reliable, but can take some compute time
+    
+    Parameters:
+    * `red`:   The amount of red
+    * `blue`:  The amount of blue
+    * `green`: The amount of green
+    * `ipf`:   The IPF colouring scheme
+    
+    Returns the euler-bunge orientations
+    """
 
     # Define the objective function
     def obj_func(x):

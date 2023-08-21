@@ -1,0 +1,8 @@
+1. Initial pixellation of EBSD data
+2. Remove voids and cleanup pixellation
+3. Add homogenised material
+4. Create sample shape using script
+5. Manually reshape in MS Paint
+6. Mesh
+7. Identify bad quality elements in Cubit
+8. Repeat steps 5, 6, and 7 until minimum quality is positive

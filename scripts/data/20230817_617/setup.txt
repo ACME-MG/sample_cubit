@@ -1,0 +1,24 @@
+INL617-1_tensile_Site3MapData17
+-----------------------------
+Magnification     = 41
+OriginalPixelSize = 2
+NewPixelSize      = 4
+ReduceByFactor    = 2
+-----------------------------
+HighAngleBoudary = 15 degree
+LowAngleBoudary  = 5 degree
+MicronbarLength  = 1000 micron
+-----------------------------
+GrainSizeRemove        = 50 pixels
+GrainAspectRatioRemove = 5
+-----------------------------
+GrainInitialCount = 3979
+GrainRemoveCount  = 640
+GrainFillCount    = 665
+-----------------------------
+SampleGaugeLength = 2172 micron
+SampleGaugeWidth  = 1630 micron
+SampleLeft        = 245 micron
+SampleRight       = 2417 micron
+SampleTop         = 123 micron
+SampleBottom      = 1753 micron

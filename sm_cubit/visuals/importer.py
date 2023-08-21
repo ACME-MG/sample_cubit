@@ -9,34 +9,30 @@
 import numpy as np
 from PIL import Image
 from sm_cubit.maths.pixel_maths import get_void_pixel_grid
-from sm_cubit.visuals.imager import MASK_COLOUR
+from sm_cubit.visuals.imager import MASK_COLOUR, UNORIENTED_COLOUR, TRANSPARENT
 from sm_cubit.visuals.ipf_cubic import euler_to_rgb
 
-# Converts an image into a pixel grid and grain map
-def convert_image(grain_map, path, ipf):
+def convert_image(grain_map:dict, path:str, ipf:str) -> list:
+    """
+    Converts an image into a pixel grid and grain map
+    
+    Parameters:
+    * `grain_map`: The mapping of the grain IDs to the grain orientations
+    * `path`:      The path to the image
+    * `ipf`:       The IPF scheme used by the image
+    
+    Returns the pixel grid
+    """
 
     # Create map of RGB to grain id
     rgb_2_id = {}
     for id in grain_map.keys():
-        
-        # Get RGB of each grain
-        euler = [grain_map[id][p] for p in ["phi_1", "Phi", "phi_2"]]
+        euler = grain_map[id].get_orientations()
         rgb = euler_to_rgb(*euler, ipf)
-
-        # Check if already in map (seldom)
         rgb_string = ",".join([str(c) for c in rgb])
         if rgb_string in rgb_2_id.keys():
             continue
-
-        # Add to map
-        rgb_2_id[rgb_string] = {
-            "id":       id,
-            "phase_id": grain_map[id]["phase_id"],
-            "phi_1":    grain_map[id]["phi_1"],
-            "Phi":      grain_map[id]["Phi"],
-            "phi_2":    grain_map[id]["phi_2"],
-            "size":     0,
-        }
+        rgb_2_id[rgb_string] = id
 
     # Read the image and convert to grid
     img = Image.open(path)
@@ -48,15 +44,15 @@ def convert_image(grain_map, path, ipf):
     for row in range(len(colour_grid)):
         for col in range(len(colour_grid[0])):
             
-            # Ignore if black (i.e., void)
+            # Ignore if void, transparent, or homogenous
             colour = colour_grid[row][col]
-            if colour[0] == MASK_COLOUR[0] and colour[1] == MASK_COLOUR[1] and colour[2] == MASK_COLOUR[2]:
-                continue
+            for excluded in [MASK_COLOUR, UNORIENTED_COLOUR, TRANSPARENT]:
+                if colour[0] == excluded[0] and colour[1] == excluded[1] and colour[2] == excluded[2]:
+                    continue
 
             # Identify pixel
             rgb_string = ",".join([str(c) for c in colour_grid[row][col]])
-            pixel_grid[row][col] = rgb_2_id[rgb_string]["id"]
-            rgb_2_id[rgb_string]["size"] += 1
+            pixel_grid[row][col] = rgb_2_id[rgb_string]
 
     # Return pixel grid
     return pixel_grid

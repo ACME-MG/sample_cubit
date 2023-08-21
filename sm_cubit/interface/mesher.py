@@ -49,16 +49,23 @@ END SCULPT
 # Mesh Parameters
 NUM_PROCESSORS = 1
 
-# Add void thickness
-def add_void_thickness(file, pixel_grid, num_pixels):
-    for _ in range(num_pixels):
-        for pixel_list in pixel_grid:
-            for _ in pixel_list:
-                file.write(f"{VOID_PIXEL_ID} ")
-    return num_pixels
-
-# Generates the mesh
-def coarse_mesh(psculpt_path, step_size, i_path, spn_path, exodus_path, pixel_grid, thickness, has_void, adaptive):
+def coarse_mesh(psculpt_path:str, step_size:float, i_path:str, spn_path:str, exodus_path:str,
+                pixel_grid:list, thickness:int, has_void:bool, adaptive:bool) -> None:
+    """
+    Generates a mesh based on an SPN file
+    
+    Parameters:
+    * `psculpt_path`: The path to PSculpt 
+    * `step_size`:    The size that each pixel represents
+    * `i_path`:       The path to the input file 
+    * `spn_path`:     The path to the SPN file 
+    * `exodus_path`:  The path to the exodus mesh file 
+    * `pixel_grid`:   The grid of pixels 
+    * `thickness`:    The thickness of each the mesh (in pixels) 
+    * `has_void`:     Whether the mesh has void pixels or not 
+    * `adaptive`:     Whether to use adaptive meshing; if activated, the script will
+                      try to use the maximum adaptive meshing level possible
+    """
 
     # Get dimensions
     y_size = round(len(pixel_grid))
@@ -75,11 +82,14 @@ def coarse_mesh(psculpt_path, step_size, i_path, spn_path, exodus_path, pixel_gr
     new_void_id = 1 if has_void else VOID_PIXEL_ID
 
     # Write SPN file (x = gauge, y = height, z = thickness)
+    #   Mesh will be flipped but this is intentional because MTEX indexes the origin ...
+    #   ... of the EBSD map from bottom left, but Cubit/Paraview does it from top left.
+    #   Original line: file.write(f"{pixel_grid[y_size - i - 1][j]} ")
     file = open(spn_path, "w+")
     for j in range(x_size):            # x
         for i in range(y_size):        # y
             for _ in range(thickness): # z
-                file.write(f"{pixel_grid[y_size - i - 1][j]} ")
+                file.write(f"{pixel_grid[i][j]} ")
     file.close()
 
     # Adaptive meshing

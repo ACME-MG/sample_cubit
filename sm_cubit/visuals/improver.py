@@ -10,8 +10,15 @@ import sm_cubit.maths.pixel_maths as pixel_maths
 from random import randint
 from copy import deepcopy
 
-# Cleans the pixel grid by replacing stray void / live pixels
-def clean_pixel_grid(pixel_grid):
+def clean_pixel_grid(pixel_grid:list) -> list:
+    """
+    Cleans the pixel grid by replacing stray void / live pixels
+    
+    Parameters:
+    * `pixel_grid`: The uncleaned grid of pixels
+    
+    Returns the cleaned pixel grid
+    """
 
     # Dimensions of the pixel grid
     x_size = len(pixel_grid[0])
@@ -21,8 +28,8 @@ def clean_pixel_grid(pixel_grid):
     for row in range(y_size):
         for col in range(x_size):
 
-            # Ignore if homogenous
-            if pixel_grid[row][col] == pixel_maths.HOMOGENOUS_PIXEL_ID:
+            # Ignore if it's added material
+            if pixel_grid[row][col] == pixel_maths.UNORIENTED_PIXEL_ID:
                 continue
 
             # Evaluate neighbouring pixels
@@ -33,7 +40,7 @@ def clean_pixel_grid(pixel_grid):
             # If half (or less) of the neighbours are void, then fill a void pixel
             if pixel_grid[row][col] == pixel_maths.VOID_PIXEL_ID and num_void <= len(neighbours) / 2:
                 copy = neighbours[randint(0, len(neighbours) - 1)]
-                if pixel_grid[copy[1]][copy[0]] == pixel_maths.HOMOGENOUS_PIXEL_ID:
+                if pixel_grid[copy[1]][copy[0]] == pixel_maths.UNORIENTED_PIXEL_ID:
                     continue
                 pixel_grid[row][col] = pixel_grid[copy[1]][copy[0]]
 
@@ -44,8 +51,15 @@ def clean_pixel_grid(pixel_grid):
     # Return cleaned pixel grid
     return pixel_grid
 
-# Smoothen the edges of grains by merging pixels
-def smoothen_edges(pixel_grid):
+def smoothen_edges(pixel_grid:list) -> list:
+    """
+    Smoothen the edges of grains by merging pixels
+    
+    Parameters:
+    * `pixel_grid`: The unsmoothed grid of pixels
+    
+    Returns the smoothed pixel grid
+    """
 
     # Dimensions of the pixel grid
     x_size = len(pixel_grid[0])
@@ -55,8 +69,8 @@ def smoothen_edges(pixel_grid):
     for row in range(y_size):
         for col in range(x_size):
         
-            # Ignore if homogenous
-            if pixel_grid[row][col] == pixel_maths.HOMOGENOUS_PIXEL_ID:
+            # Ignore if it's added material
+            if pixel_grid[row][col] == pixel_maths.UNORIENTED_PIXEL_ID:
                 continue
 
             # Evaluate neighbouring pixels
@@ -66,15 +80,22 @@ def smoothen_edges(pixel_grid):
             # If there are more than 2 foreign neighbours, get absorbed
             if len(foreign_neighbours) > 2:
                 foreign = foreign_neighbours[randint(0, len(foreign_neighbours) - 1)]
-                if pixel_grid[foreign[1]][foreign[0]] == pixel_maths.HOMOGENOUS_PIXEL_ID:
+                if pixel_grid[foreign[1]][foreign[0]] == pixel_maths.UNORIENTED_PIXEL_ID:
                     continue
                 pixel_grid[row][col] = pixel_grid[foreign[1]][foreign[0]]
 
     # Return cleaned pixel grid
     return pixel_grid
 
-# Pads the pixel grid by replicating live pixels
-def pad_edges(pixel_grid):
+def pad_edges(pixel_grid:list) -> list:
+    """
+    Pads the pixel grid by replicating unvoided pixels
+    
+    Parameters:
+    * `pixel_grid`: The unpadded grid of pixels
+    
+    Returns the padded pixel grid
+    """
     
     # Dimensions of the pixel grid
     x_size = len(pixel_grid[0])
@@ -104,8 +125,15 @@ def pad_edges(pixel_grid):
     # Return padded pixel grid
     return padded_pixel_grid
 
-# Gets sorted list of grain ids without voids
-def get_sorted_grain_id_list(pixel_grid):
+def get_sorted_grain_id_list(pixel_grid:list) -> tuple:
+    """
+    Gets sorted list of grain ids without voids
+    
+    Parameters:
+    * `pixel_grid`: The unpadded grid of pixels
+    
+    Returns the sorted IDs and the flattened IDs
+    """
     flattened = [pixel for pixel_list in pixel_grid for pixel in pixel_list]
     id_list = list(set(flattened))
     if pixel_maths.VOID_PIXEL_ID in id_list:
@@ -113,8 +141,16 @@ def get_sorted_grain_id_list(pixel_grid):
     id_list.sort()
     return id_list, flattened
 
-# Removes small grains
-def remove_small_grains(size, pixel_grid):
+def remove_small_grains(pixel_grid:list, threshold:int) -> list:
+    """
+    Removes small grains
+    
+    Parameters:
+    * `pixel_grid`: The unremoved grid of pixels
+    * `threshold`:  The grain size threshold to start removing grains
+    
+    Returns the pixel grid without the small grains
+    """
     
     # Initialise
     id_list, flattened = get_sorted_grain_id_list(pixel_grid)
@@ -125,7 +161,7 @@ def remove_small_grains(size, pixel_grid):
     for id in id_list:
 
         # Only consider grains under threshold
-        if flattened.count(id) >= size:
+        if flattened.count(id) >= threshold:
             continue
 
         # Get the coordinates of all the pixels
@@ -149,8 +185,17 @@ def remove_small_grains(size, pixel_grid):
     # Return the new pixel grid
     return pixel_grid
 
-# Merges commonly oriented grains
-def merge_grains(pixel_grid, grain_map, threshold=10):
+def merge_grains(pixel_grid:list, grain_map:dict, threshold:int=10) -> list:
+    """
+    Merges commonly oriented grains
+    
+    Parameters:
+    * `pixel_grid`: The unmerged grid of pixels
+    * `grain_map`:  The mapping from grain IDs to their orientations
+    * `threshold`:  The grain size threshold to start removing grains
+    
+    Returns the pixel grid with the merged grains
+    """
 
     # Intialise
     id_list, _ = get_sorted_grain_id_list(pixel_grid)
@@ -159,9 +204,9 @@ def merge_grains(pixel_grid, grain_map, threshold=10):
     
     # Identify grains to merge
     for i in range(len(id_list)):
-        orientation_1 = [grain_map[id_list[i]][x] for x in ["phi_1", "Phi", "phi_2"]]
+        orientation_1 = grain_map[id_list[i]].get_orientation()
         for j in range(i+1, len(id_list)):
-            orientation_2 = [grain_map[id_list[j]][x] for x in ["phi_1", "Phi", "phi_2"]]
+            orientation_2 = grain_map[id_list[j]].get_orientation()
             error = sum([abs(orientation_1[k] - orientation_2[k]) for k in range(3)])
             if error < threshold:
                 if id_list[i] in merge_map.keys():

@@ -7,45 +7,53 @@
 
 # Libraries
 import sm_cubit.maths.pixel_maths as pixel_maths
-import sm_cubit.maths.grain_maths as grain_maths
+from sm_cubit.maths.grain import Grain
+from sm_cubit.interface.format import HEADER_X, HEADER_Y, HEADER_PHASE_ID, HEADER_GRAIN_ID
+from sm_cubit.interface.format import HEADER_AVG_PHI_1, HEADER_AVG_PHI, HEADER_AVG_PHI_2
 
-# Constants
-HEADER_X_COORD  = "x"
-HEADER_Y_COORD  = "y"
-HEADER_PHASE_ID = "phase_id"
-HEADER_GRAIN_ID = "grain_id"
-HEADER_PHI_1    = "phi_1"
-HEADER_PHI      = "Phi"
-HEADER_PHI_2    = "phi_2"
-STEP_DECIMAL_PLACE = 3
-
-# Gets the range and step size from a list of values
-def get_info(value_list, step_size):
+def get_info(value_list:list, step_size:float) -> tuple:
+    """
+    Gets the range and step size from a list of values
+    
+    Parameters:
+    * `value_list`: List of values
+    * `step_size`:  The step size of each pixel
+    
+    Returns the number of values and minimum values
+    """
     max_value = max(value_list)
     min_value = min(value_list)
     num_values = round((max_value - min_value) / step_size) + 1
     return num_values, min_value
 
-# Converts a CSV file into a grid of pixels
-def read_pixels(path, step_size):
+def read_pixels(path:str, step_size:float) -> tuple:
+    """
+    Converts a CSV file into a grid of pixels
+    
+    Parameters:
+    * `path`:      The path to the CSV file
+    * `step_siez`: The step size of each pixel
+    
+    Returns the pixel grid and grain map
+    """
 
-    # Open file and read header
+    # Open file and read headers
     file = open(path, "r")
-    header = file.readline().replace("\n", "").split(",")
+    headers = file.readline().replace("\n", "").split(",")
     rows = file.readlines()
     
     # Get column indexes
-    x_index        = header.index(HEADER_X_COORD)
-    y_index        = header.index(HEADER_Y_COORD)
-    phase_id_index = header.index(HEADER_PHASE_ID)
-    graid_id_index = header.index(HEADER_GRAIN_ID)
-    phi_1_index    = header.index(HEADER_PHI_1)
-    Phi_index      = header.index(HEADER_PHI)
-    phi_2_index    = header.index(HEADER_PHI_2)
+    index_x         = headers.index(HEADER_X)
+    index_y         = headers.index(HEADER_Y)
+    index_phase_id  = headers.index(HEADER_PHASE_ID)
+    index_grain_id  = headers.index(HEADER_GRAIN_ID)
+    index_avg_phi_1 = headers.index(HEADER_AVG_PHI_1)
+    index_avg_Phi   = headers.index(HEADER_AVG_PHI)
+    index_avg_phi_2 = headers.index(HEADER_AVG_PHI_2)
 
     # Get dimensions
-    x_cells, x_min = get_info([float(row.split(",")[x_index]) for row in rows], step_size)
-    y_cells, y_min = get_info([float(row.split(",")[y_index]) for row in rows], step_size)
+    x_cells, x_min = get_info([float(row.split(",")[index_x]) for row in rows], step_size)
+    y_cells, y_min = get_info([float(row.split(",")[index_y]) for row in rows], step_size)
     
     # Initialise pixel grid and grain map
     pixel_grid = pixel_maths.get_void_pixel_grid(x_cells, y_cells)
@@ -59,47 +67,49 @@ def read_pixels(path, step_size):
         if "NaN" in row_list or "nan" in row_list:
             continue
         row_list = [float(val) for val in row_list]
-        grain_id = round(row_list[graid_id_index])
+        grain_id = round(row_list[index_grain_id])
 
         # Add to pixel grid
-        x = round(float(row_list[x_index] - x_min) / step_size)
-        y = round(float(row_list[y_index] - y_min) / step_size)
+        x = round(float(row_list[index_x] - x_min) / step_size)
+        y = round(float(row_list[index_y] - y_min) / step_size)
         pixel_grid[y][x] = grain_id
 
         # Add to grain map if not yet added
         if not grain_id in grain_map:
-            grain_dict = grain_maths.get_grain_dict(
-                phase_id    = row_list[phase_id_index],
-                phi_1       = row_list[phi_1_index],
-                Phi         = row_list[Phi_index],
-                phi_2       = row_list[phi_2_index],
-                size        = 1,
+            new_grain = Grain(
+                phase_id = row_list[index_phase_id],
+                phi_1    = row_list[index_avg_phi_1],
+                Phi      = row_list[index_avg_Phi],
+                phi_2    = row_list[index_avg_phi_2],
+                size     = 1,
             )
-            grain_map[grain_id] = grain_dict
+            grain_map[grain_id] = new_grain
         
         # Update grain map if already added
         else:
-            old_grain_dict = grain_map[grain_id]
-            new_grain_dict = grain_maths.update_grain_dict(
-                grain_dict = old_grain_dict,
-                phi_1      = row_list[phi_1_index],
-                Phi        = row_list[Phi_index],
-                phi_2      = row_list[phi_2_index],
-            )
-            grain_map[grain_id] = new_grain_dict
+            grain_map[grain_id].increment_size()
     
     # Close file and return grid and map
     file.close()
     return pixel_grid, grain_map
 
-# Renumbers the grain IDs
-def remap_grains(pixel_grid, grain_map):
+def remap_grains(pixel_grid:list, grain_map:dict) -> tuple:
+    """
+    Renumbers the grain IDs
+    
+    Parameters:
+    * `pixel_grid`: A grid of pixels
+    * `grain_map`:  A mapping of the grains to the average orientations
+    
+    Returns the new pixel grid and grain map
+    """
 
     # Get list of old IDs
     flattened = [pixel for pixel_list in pixel_grid for pixel in pixel_list]
     old_ids = list(set(flattened))
-    if pixel_maths.VOID_PIXEL_ID in old_ids:
-        old_ids.remove(pixel_maths.VOID_PIXEL_ID)
+    for excluded_id in [pixel_maths.VOID_PIXEL_ID, pixel_maths.UNORIENTED_PIXEL_ID]:
+        if excluded_id in old_ids:
+            old_ids.remove(excluded_id)
     old_ids.sort()
 
     # Map old IDs to new IDs
@@ -111,17 +121,17 @@ def remap_grains(pixel_grid, grain_map):
     new_pixel_grid = pixel_maths.get_void_pixel_grid(len(pixel_grid[0]), len(pixel_grid))
     for row in range(len(pixel_grid)):
         for col in range(len(pixel_grid[0])):
-            if pixel_grid[row][col] == pixel_maths.VOID_PIXEL_ID:
-                continue
-            new_id = id_map[pixel_grid[row][col]]
-            new_pixel_grid[row][col] = new_id
+            if pixel_grid[row][col] in [pixel_maths.VOID_PIXEL_ID, pixel_maths.UNORIENTED_PIXEL_ID]:
+                new_pixel_grid[row][col] = pixel_grid[row][col]
+            else:
+                new_id = id_map[pixel_grid[row][col]]
+                new_pixel_grid[row][col] = new_id
     
     # Create new grain map
     new_grain_map = {}
     for old_id in old_ids:
         new_id = id_map[old_id]
         new_grain_map[new_id] = grain_map[old_id]
-        new_grain_map[new_id]["size"] = flattened.count(old_id)
 
     # Return new pixel grid and grain map
     return new_pixel_grid, new_grain_map
